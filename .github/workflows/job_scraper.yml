@@ -1,0 +1,42 @@
+name: Job Scraper
+
+on:
+  schedule:
+    # Runs 4x daily: 6am, 12pm, 6pm, midnight UTC
+    - cron: '0 0,6,12,18 * * *'
+  workflow_dispatch: # allows manual trigger from GitHub UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scraper
+        env:
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+        run: python scraper/scrape.py
+
+      - name: Save updated jobs_seen.json
+        run: |
+          git config user.name "job-scraper-bot"
+          git config user.email "bot@noreply.github.com"
+          git add scraper/jobs_seen.json
+          git diff --staged --quiet || git commit -m "chore: update seen jobs [skip ci]"
+          git push
