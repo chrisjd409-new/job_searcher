@@ -1,1 +1,22 @@
-{}
+{
+  "cohere_df93ec57-d51e-4466-93be-4878c5fda4da": {
+    "title": "Software Engineer - Applied ML - UK Public Sector",
+    "company": "Cohere",
+    "first_seen": "2026-04-20T19:06:58.474030"
+  },
+  "cohere_1fa01a03-9253-4f62-8f10-0fe368b38cb9": {
+    "title": "Applied AI Engineer \u2013 Agentic Workflows",
+    "company": "Cohere",
+    "first_seen": "2026-04-20T19:06:58.474043"
+  },
+  "cohere_9c18b199-cd1f-4ef3-9fab-ce05589348ae": {
+    "title": "Applied AI Engineer - Agentic Workflows (Singapore)",
+    "company": "Cohere",
+    "first_seen": "2026-04-20T19:06:58.474046"
+  },
+  "cohere_031c2335-db85-4265-8a88-a54b911be36a": {
+    "title": "Applied AI Engineer \u2013 Agentic Workflows (Korea)",
+    "company": "Cohere",
+    "first_seen": "2026-04-20T19:06:58.474047"
+  }
+}
