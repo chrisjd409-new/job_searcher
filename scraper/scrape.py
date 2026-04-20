@@ -7,8 +7,14 @@ from datetime import datetime
 import requests
 
 KEYWORDS = ["AI Engineer", "Machine Learning Engineer", "Data Scientist", "Software Engineer"]
-ML_AI_TERMS = ["machine learning", " ml ", "ai ", "artificial intelligence", "deep learning", "nlp", "llm", "generative"]
-ENTRY_LEVEL_TERMS = ["entry", "junior", "new grad", "0-2", "1-2", "early career", "university grad", "associate"]
+ML_AI_TERMS = [
+    "machine learning", " ml ", "ai ", "artificial intelligence",
+    "deep learning", "nlp", "llm", "generative",
+]
+SENIOR_EXCLUDE = [
+    "senior", "staff", "principal", "lead", "director",
+    "manager", "head of", "vp", "vice president", " iii", " iv", " v ",
+]
 SEEN_JOBS_FILE = "scraper/jobs_seen.json"
 
 
@@ -26,9 +32,10 @@ def save_seen_jobs(seen):
 
 def is_relevant_title(title):
     title_lower = title.lower()
+    if any(bad in title_lower for bad in SENIOR_EXCLUDE):
+        return False
     for kw in KEYWORDS:
         if kw.lower() in title_lower:
-            # "Software Engineer" alone isn't enough — must have ML/AI context in title
             if kw.lower() == "software engineer":
                 if any(term in title_lower for term in ML_AI_TERMS):
                     return True
@@ -37,47 +44,9 @@ def is_relevant_title(title):
     return False
 
 
-def scrape_google():
+def scrape_greenhouse(company_slug, company_display):
     jobs = []
-    seen_ids = set()
-    search_terms = ["machine learning engineer", "data scientist", "AI engineer", "software engineer AI"]
-
-    for term in search_terms:
-        url = "https://careers.google.com/api/v3/search/"
-        params = {
-            "q": term,
-            "jex": "ENTRY_LEVEL",
-            "page_size": 100,
-        }
-        try:
-            resp = requests.get(url, params=params, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
-            resp.raise_for_status()
-            data = resp.json()
-            for job in data.get("jobs", []):
-                job_id = str(job.get("id", ""))
-                if job_id in seen_ids:
-                    continue
-                seen_ids.add(job_id)
-                title = job.get("title", "")
-                if is_relevant_title(title):
-                    locations = [loc.get("display", "") for loc in job.get("locations", [])]
-                    jobs.append({
-                        "id": f"google_{job_id}",
-                        "company": "Google",
-                        "title": title,
-                        "location": ", ".join(locations),
-                        "url": f"https://careers.google.com/jobs/results/{job_id}",
-                        "posted": job.get("publish_date", ""),
-                    })
-        except Exception as e:
-            print(f"[Google] Error scraping '{term}': {e}")
-
-    return jobs
-
-
-def scrape_cohere():
-    jobs = []
-    url = "https://boards-api.greenhouse.io/v1/boards/cohere/jobs"
+    url = f"https://boards-api.greenhouse.io/v1/boards/{company_slug}/jobs"
     try:
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
@@ -87,15 +56,42 @@ def scrape_cohere():
             job_id = str(job.get("id", ""))
             if is_relevant_title(title):
                 jobs.append({
-                    "id": f"cohere_{job_id}",
-                    "company": "Cohere",
+                    "id": f"{company_slug}_{job_id}",
+                    "company": company_display,
                     "title": title,
                     "location": job.get("location", {}).get("name", ""),
                     "url": job.get("absolute_url", ""),
                     "posted": job.get("updated_at", ""),
                 })
     except Exception as e:
-        print(f"[Cohere] Error: {e}")
+        print(f"[{company_display}] Error: {e}")
+
+    return jobs
+
+
+def scrape_ashby(company_slug, company_display):
+    jobs = []
+    url = f"https://api.ashbyhq.com/posting-api/job-board/{company_slug}"
+    try:
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        for job in data.get("jobs", []):
+            title = job.get("title", "")
+            job_id = str(job.get("id", ""))
+            if not job.get("isListed", True):
+                continue
+            if is_relevant_title(title):
+                jobs.append({
+                    "id": f"{company_slug}_{job_id}",
+                    "company": company_display,
+                    "title": title,
+                    "location": job.get("location", ""),
+                    "url": job.get("jobUrl", ""),
+                    "posted": job.get("publishedAt", ""),
+                })
+    except Exception as e:
+        print(f"[{company_display}] Error: {e}")
 
     return jobs
 
@@ -131,7 +127,10 @@ def send_email(new_jobs):
 
 def main():
     seen = load_seen_jobs()
-    all_jobs = scrape_google() + scrape_cohere()
+    all_jobs = (
+        scrape_greenhouse("deepmind", "Google DeepMind")
+        + scrape_ashby("cohere", "Cohere")
+    )
     new_jobs = [j for j in all_jobs if j["id"] not in seen]
 
     print(f"Total relevant jobs found: {len(all_jobs)} | New: {len(new_jobs)}")
