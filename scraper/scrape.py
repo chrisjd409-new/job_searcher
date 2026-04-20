@@ -15,7 +15,20 @@ SENIOR_EXCLUDE = [
     "senior", "staff", "principal", "lead", "director",
     "manager", "head of", "vp", "vice president", " iii", " iv", " v ",
 ]
+US_INDICATORS = [
+    ", us", ", usa", "united states", " - us", "remote - us",
+    "san francisco", "new york", "mountain view", "seattle",
+    "boston", "los angeles", "chicago", "austin", "palo alto",
+    "washington, dc", "denver", "atlanta", "san jose",
+]
 SEEN_JOBS_FILE = "scraper/jobs_seen.json"
+
+
+def is_us_location(loc_str):
+    if not loc_str:
+        return False
+    loc_lower = loc_str.lower()
+    return any(x in loc_lower for x in US_INDICATORS)
 
 
 def load_seen_jobs():
@@ -54,12 +67,13 @@ def scrape_greenhouse(company_slug, company_display):
         for job in data.get("jobs", []):
             title = job.get("title", "")
             job_id = str(job.get("id", ""))
-            if is_relevant_title(title):
+            location = job.get("location", {}).get("name", "")
+            if is_relevant_title(title) and is_us_location(location):
                 jobs.append({
                     "id": f"{company_slug}_{job_id}",
                     "company": company_display,
                     "title": title,
-                    "location": job.get("location", {}).get("name", ""),
+                    "location": location,
                     "url": job.get("absolute_url", ""),
                     "posted": job.get("updated_at", ""),
                 })
@@ -81,12 +95,19 @@ def scrape_ashby(company_slug, company_display):
             job_id = str(job.get("id", ""))
             if not job.get("isListed", True):
                 continue
-            if is_relevant_title(title):
+            country = (
+                job.get("address", {})
+                .get("postalAddress", {})
+                .get("addressCountry", "")
+            )
+            location = job.get("location", "")
+            is_us = country == "United States" or is_us_location(location)
+            if is_relevant_title(title) and is_us:
                 jobs.append({
                     "id": f"{company_slug}_{job_id}",
                     "company": company_display,
                     "title": title,
-                    "location": job.get("location", ""),
+                    "location": location,
                     "url": job.get("jobUrl", ""),
                     "posted": job.get("publishedAt", ""),
                 })
